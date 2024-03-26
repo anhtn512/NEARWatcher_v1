@@ -1,4 +1,5 @@
 const { escapers } = require('@telegraf/entity')
+const { utils } = require('near-api-js')
 
 function extractActions(actions) {
   let tempActions = actions.map(action => {
@@ -9,6 +10,12 @@ function extractActions(actions) {
 }
 
 function decodeAction(action) {
+  if (action.gas) {
+    action.gas = utils.format.formatNearAmount(String(action.gas), 16) + ' NEAR'
+  }
+  if (action.deposit) {
+    action.deposit = utils.format.formatNearAmount(action.deposit, 16) + ' NEAR'
+  }
   if (action.type === 'FunctionCall') {
     const temp = Buffer.from(action.args, 'base64')
     try {
@@ -41,7 +48,6 @@ action:
 }
 
 module.exports = {
-  convertTimestamp,
   extractActions,
   txToString
 };
