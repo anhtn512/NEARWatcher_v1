@@ -4,8 +4,11 @@ const rooms = new Level('./db/rooms')
 
 async function getAllAddresses() {
   let list = []
-  for await (const key of addresses.keys()) {
-    list.push(key)
+  for await (const [key, value] of addresses.iterator()) {
+    list.push({
+      address: key,
+      rooms: deserializeObject(value)
+    })
   }
   return list
 }

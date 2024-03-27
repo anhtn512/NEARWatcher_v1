@@ -42,7 +42,7 @@ async function fetchTransactions() {
     }
     console.log(`block: ${blocks.length}`)
     if (blocks[0]) options.latestBlock = blocks[0].header.hash
-    
+
     const chunkHashs = blocks.flatMap(blocks => blocks.chunks.map(item => item.chunk_hash))
     const chunkDetails = await Promise.all(chunkHashs.map(chunk => near.connection.provider.chunk(chunk)));
     const txs = chunkDetails.flatMap(chunk => (chunk.transactions || [])).map(tx => ({
@@ -54,12 +54,16 @@ async function fetchTransactions() {
     console.log(`checked ${txs.length} txs, latest block: ${options.latestBlock}`)
 
     let tempQueue = []
-    watchlists.forEach(address => {
-      let list = txs.filter(tx => tx.sender === address || tx.receiver === address)
+    watchlists.forEach(item => {
+      let list = txs.filter(tx => tx.sender === item.address || tx.receiver === item.address)
       if (list.length !== 0) {
-        tempQueue.push({
-          address: address,
-          txs: list
+        item.rooms.forEach(room => {
+          list.forEach(tx => {
+            tempQueue.push({
+              id: room,
+              tx: tx
+            })
+          })
         })
       }
     });
@@ -71,25 +75,20 @@ async function fetchTransactions() {
   options.busy = 0
 }
 
-async function handleQueue() {
-  const data = messageQueue;
-  messageQueue = [];
+async function handleQueue() {  // limit 30room/s and 30message/s => 429 Error
+  const data = messageQueue.splice(0, 25);
+  console.log(`take: ${data.length} - remain: ${messageQueue.length}`)
   data.forEach(async item => {
-    const listRoom = await getRooms(item.address)
-    item.txs.forEach(tx => {
-      listRoom.forEach(room => {
-        bot.telegram.sendMessage(room, txToString(tx), { parse_mode: 'MarkdownV2' }).catch(async err => {
-          console.log(`room: ${room}`)
-          console.log(err.message)
-        })
-      })
+    bot.telegram.sendMessage(item.id, txToString(item.tx), { parse_mode: 'MarkdownV2' }).catch(async err => {
+      console.log(`room: ${item.id}`)
+      console.log(err.message)
     })
   })
 }
 
-setInterval(syncAddress, 10 * 1000)
-setInterval(fetchTransactions, 20 * 1000)
-setInterval(handleQueue, 15 * 1000)
+setInterval(syncAddress, 60 * 1000)
+setInterval(fetchTransactions, 10 * 1000)
+setInterval(handleQueue, 1 * 5000)
 
 bot.start(ctx => ctx.reply('Send an account name and the bot will notify you of new transactions'))
 
