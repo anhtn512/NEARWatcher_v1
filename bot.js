@@ -75,15 +75,18 @@ async function fetchTransactions() {
   options.busy = 0
 }
 
-async function handleQueue() {  // limit 30room/s and 30message/s => 429 Error
+async function handleQueue() {  // limit 30room/s, 30message/s and 20messsage/room/minute => 429 Error
   const data = messageQueue.splice(0, 25);
   console.log(`take: ${data.length} - remain: ${messageQueue.length}`)
+  let txFails = []
   data.forEach(async item => {
     bot.telegram.sendMessage(item.id, txToString(item.tx), { parse_mode: 'MarkdownV2' }).catch(async err => {
       console.log(`room: ${item.id}`)
       console.log(err.message)
+      txFails.push(item)
     })
   })
+  messageQueue = txFails.concat(messageQueue)
 }
 
 setInterval(syncAddress, 60 * 1000)
